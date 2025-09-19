@@ -29,4 +29,24 @@ router.post(
   authControllers.logoutUser
 )
 
+router.post(
+  "/user/addresses",
+  validators.addressValidations,
+  authMiddleware,
+  authControllers.addAddress
+)
+
+router.get(
+  "/user/addresses",
+  authMiddleware,
+  authControllers.getAddresses
+)
+
+router.delete(
+  "/user/addresses/:id",
+  validators.addressIdValidation,
+  authMiddleware,
+  authControllers.deleteUserAddress
+)
+
 module.exports = router;
