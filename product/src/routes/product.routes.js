@@ -12,4 +12,23 @@ router.post(
   productControllers.addProduct
 );
 
+router.get(
+  "/",
+  validators.getProductsValidations,
+  productControllers.getProducts
+)
+
+router.get(
+  "/:id",
+  validators.getProductByIdValidations,
+  productControllers.getProductById
+)
+
+router.patch(
+  "/:id",
+  validators.updateProductValidations,
+  createAuthMiddleware(["seller"]),
+  productControllers.updateProduct
+)
+
 module.exports = router;
