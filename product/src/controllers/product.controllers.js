@@ -100,7 +100,7 @@ async function getProductById(req, res) {
     product
   })
 }
-
+//todo: handle case of not same seller and if try to update then display 'you can t update you are not the owner' 
 async function updateProduct(req, res) {
   try {
     const userId = req.user.id;
@@ -141,10 +141,73 @@ async function updateProduct(req, res) {
     });
   }
 }
+// todo : and functionality to delete phots from cloud also when the product is deleted
+//todo : and then test this delete route
+async function deleteProduct(req, res) {
+  const productId = req.params.id; 
+  
+  try {
+    const deletedProduct = await productModel.findByIdAndDelete(productId);
+
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found"
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: "Product is deleted successfully"
+    })
+  } catch (error) {
+    console.log("Error while deleting product : ",error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while deleting product"
+    })
+  }
+}
+
+async function fetchSellerProducts(req, res) {
+  try {
+    const sellerId = req.user?.id;
+
+    if (!sellerId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: No token provided",
+      });
+    }
+
+    const products = await productModel.find({ seller: sellerId });
+
+    if (!products || products.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Products not found from the seller",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Seller's product fetched successfully",
+      data: products,
+    });
+  } catch (error) {
+    console.error("Error fetching seller products:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
 
 module.exports = { 
   addProduct, 
   getProducts,
   getProductById,
-  updateProduct
+  updateProduct,
+  deleteProduct,
+  fetchSellerProducts
 };

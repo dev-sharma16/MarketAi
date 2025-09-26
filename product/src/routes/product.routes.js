@@ -18,17 +18,30 @@ router.get(
   productControllers.getProducts
 )
 
-router.get(
-  "/:id",
-  validators.getProductByIdValidations,
-  productControllers.getProductById
-)
-
 router.patch(
   "/:id",
   validators.updateProductValidations,
   createAuthMiddleware(["seller"]),
   productControllers.updateProduct
+)
+
+router.delete(
+  "/:id",
+  validators.deleteProductValidations,
+  createAuthMiddleware(["seller"]),
+  productControllers.deleteProduct
+)
+
+router.get(
+  "/seller",
+  createAuthMiddleware(["seller"]),
+  productControllers.fetchSellerProducts
+)
+
+router.get(
+  "/:id",
+  validators.getProductByIdValidations,
+  productControllers.getProductById
 )
 
 module.exports = router;
