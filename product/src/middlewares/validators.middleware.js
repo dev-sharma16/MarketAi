@@ -79,9 +79,18 @@ const updateProductValidations = [
     .withMessage("Price currency must be a string")
 ];
 
+const deleteProductValidations = [
+  param("id").isMongoId().withMessage("Invalid product ID"),
+  respondWithValidationErrors
+]
+
+
+
 module.exports = {
   addProductValidations,
   getProductsValidations,
   getProductByIdValidations,
-  updateProductValidations
+  updateProductValidations,
+  deleteProductValidations,
+
 };

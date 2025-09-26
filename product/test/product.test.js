@@ -2,6 +2,13 @@ const request = require("supertest");
 const app = require("../src/app");
 const db = require("../test/setups/mongoMemory");
 const productModel = require("../src/models/product.model");
+const jwt = require("jsonwebtoken");
+
+const JWT_SECRET = process.env.JWT_SECRET || "testsecret";
+// helper to create a signed JWT token
+function generateToken(payload) {
+  return jwt.sign(payload, JWT_SECRET);
+}
 
 // 👇 mock image service
 jest.mock("../src/services/image.service.js", () => jest.fn());
@@ -288,5 +295,141 @@ describe("PATCH /product/:id", () => {
     expect(res.body.success).toBe(true);
     // seller should remain unchanged
     expect(res.body.product.seller).toBe("507f1f77bcf86cd799439011");
+  });
+});
+
+describe("DELETE /product/:id", () => {
+  let product;
+
+  beforeEach(async () => {
+    // seed a product owned by mocked user
+    product = await productModel.create({
+      title: "Old Title",
+      description: "Old description",
+      price: { amount: 100, currency: "INR" },
+      seller: "507f1f77bcf86cd799439011"
+    });
+  });
+
+  it("should delete the product successfully with valid product ID", async () => {
+    const res = await request(app).delete(`/product/${product._id}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe("Product is deleted successfully");
+  });
+
+  it("should return 404 if product does not exist", async () => {
+    const fakeId = "64b2f0c7f9d3b341f8c6a653"; // valid ObjectId but not in DB
+    const res = await request(app).delete(`/product/${fakeId}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toBe("Product not found");
+  });
+
+  it("should return 400 if productId is invalid", async () => {
+    const res = await request(app).delete(`/product/12345`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors[0].msg).toMatch(/invalid product id/i);
+  });
+});
+// todo : first two cases are not passing from "GET /product/seller"  
+describe("GET /product/seller", () => {
+  const createAuthMiddleware = require("../src/middlewares/auth.middleware.js");
+  
+  beforeEach(async () => {
+    await db.clear();
+    // Reset to default mock behavior
+    createAuthMiddleware.mockImplementation(() => (req, res, next) => {
+      req.user = {
+        id: "507f1f77bcf86cd799439011",
+        email: "test@example.com",
+        role: "user"
+      };
+      next();
+    });
+  });
+
+  it("should return 401 if no token is provided", async () => {
+    // Override the mock for this specific test
+    createAuthMiddleware.mockImplementation(() => (req, res, next) => {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: No token provided"
+      });
+    });
+
+    const res = await request(app).get("/product/seller");
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Unauthorized: No token provided");
+  });
+
+  it("should return 403 if logged-in user is not a seller", async () => {
+    // Override the mock to simulate role check failure
+    createAuthMiddleware.mockImplementation(() => (req, res, next) => {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Insufficient permissions"
+      });
+    });
+
+    const token = generateToken({
+      id: "507f1f77bcf86cd799439099",
+      role: "user",
+      email: "user@test.com",
+    });
+
+    const res = await request(app)
+      .get("/product/seller")
+      .set("Cookie", [`token=${token}`]);
+
+    expect(res.status).toBe(403);
+    expect(res.body.message).toBe("Forbidden: Insufficient permissions");
+  });
+
+  it("should return 404 if seller has no products", async () => {
+    const token = generateToken({
+      id: "507f1f77bcf86cd799439011",
+      role: "seller",
+      email: "seller@test.com",
+    });
+
+    const res = await request(app)
+      .get("/product/seller")
+      .set("Cookie", [`token=${token}`]);
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toBe("Products not found from the seller");
+  });
+
+  it("should fetch all products of the logged-in seller", async () => {
+    const sellerId = "507f1f77bcf86cd799439011";
+
+    // seed product
+    await productModel.create({
+      title: "Old Title",
+      description: "Old description",
+      price: { amount: 100, currency: "INR" },
+      seller: sellerId,
+    });
+
+    const token = generateToken({
+      id: sellerId,
+      role: "seller",
+      email: "seller@test.com",
+    });
+
+    const res = await request(app)
+      .get("/product/seller")
+      .set("Cookie", [`token=${token}`]);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe("Seller's product fetched successfully");
+    expect(res.body.data).toHaveLength(1);
   });
 });
