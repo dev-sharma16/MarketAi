@@ -34,7 +34,7 @@ afterEach(async () => {
 });
 
 describe("GET /cart", () => {
-  it("should return empty cart initially", async () => {
+  it("should return existing empty cart", async () => {
     await cartModel.create({
       user: "65f1a2b3c4d5e6f789012345",
       items: []
@@ -46,25 +46,27 @@ describe("GET /cart", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe("Cart fetched successfully");
+    expect(Array.isArray(res.body.cart.items)).toBe(true);
     expect(res.body.cart.items).toEqual([]);
+    expect(res.body.totals.items).toBe(0);
   });
 
-  it("should return 404 if the cart not exists foo a user", async () => {
+  it("should create and return a new empty cart if none exists", async () => {
     const res = await request(app)
       .get("/cart")
       .set("Cookie", [`token=${token}`]);
 
-    expect(res.status).toBe(404);
-    expect(res.body.success).toBe(false);
-    expect(res.body.message).toBe("No cart found");
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe("Cart fetched successfully");
+    expect(res.body.cart.user).toBeDefined();
+    expect(Array.isArray(res.body.cart.items)).toBe(true);
+    expect(res.body.cart.items).toEqual([]);
+    expect(res.body.totals.items).toBe(0);
   });
 
   it("should return 401 if user is unauthenticated", async () => {
-    await cartModel.create({
-      user: "65f1a2b3c4d5e6f789012345",
-      items: []
-    });
-
     const res = await request(app).get("/cart");
 
     expect(res.status).toBe(401);
