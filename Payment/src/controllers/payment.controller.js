@@ -1,6 +1,7 @@
 const paymentModel = require("../models/payment.model");
 const axios = require("axios");
 const razorpay = require("../service/razorpay.service");
+const { publishToQueue } = require("../broker/broker")
 
 async function createPayment(req, res) {
   const { orderId } = req.params;
@@ -51,7 +52,7 @@ async function createPayment(req, res) {
     });
   }
 }
-// todo: testing of verify payment is not done  
+// todo: testing of verify payment is not done and also tesing of the queu adn mail system
 async function verifyPayment(req, res) {
   const { razorpayOrderId, razorpayPaymentId, signature } = req.body;
   const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
@@ -75,6 +76,15 @@ async function verifyPayment(req, res) {
 
       await payment.save();
 
+      await publishToQueue("PAYMENT_NOTIFICATION.PAYMENT_COMPLETED", { 
+        email: req.user.email,
+        username: req.use.username,
+        orderId : payment.order,
+        paymentId: payment.paymentId,
+        amount: payment.price.amount / 100,
+        currency: payment.price.currency
+      })
+
       res.status(200).json({
         success: true,
         message: "Payment verified successfully",
@@ -85,6 +95,13 @@ async function verifyPayment(req, res) {
     }
   } catch (error) {
     console.log(error);
+
+    await publishToQueue("PAYMENT_NOTIFICATION.PAYMENT_FAILED", { 
+      email: req.user.email, 
+      paymentId: razorpayPaymentId, 
+      orderId: razorpayOrderId 
+    })
+
     res.status(500).send("Error verifying payment");
   }
 }

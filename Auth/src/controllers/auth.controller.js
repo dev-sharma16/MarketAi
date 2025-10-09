@@ -2,6 +2,7 @@ const userModel = require("../models/user.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const redis = require("../db/redis");
+const { publishToQueue } = require("../broker/broker")
 
 const cookieOptions = {
   httpOnly: true,
@@ -43,6 +44,13 @@ async function registerUser(req, res) {
     fullName: { firstName, lastName },
     role: role || "user"
   });
+
+  await publishToQueue("AUTH_NOTIFICATION.USER_CREATED", {
+    id: user._id,
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName
+  })
 
   const userWithoutPass = await userModel
     .findById(user._id)
